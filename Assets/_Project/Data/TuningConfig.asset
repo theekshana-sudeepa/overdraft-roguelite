@@ -76,10 +76,6 @@ MonoBehaviour:
     spitterCost: 40
     splitterCost: 25
     eliteWeightPercent: 20
-    m1SpawnInterval: 1.1
-    m1SpawnIntervalMin: 0.22
-    m1SpawnRampPerSecond: 0.008
-    m1MaxAlive: 120
   Boss:
     maxHP: 900
     phase2Threshold: 0.66
@@ -129,6 +125,23 @@ MonoBehaviour:
   EnemyCombat:
     projectileLifetime: 3
     projectileRadius: 0.18
+  Upgrades:
+    spreadT1Projectiles: 2
+    spreadT1ConeDegrees: 15
+    spreadT2Projectiles: 3
+    spreadT2ConeDegrees: 25
+    spreadT3Projectiles: 5
+    spreadT3ConeDegrees: 40
+    spreadT3DamageMultiplier: 0.8
+    volatileT1Radius: 1.6
+    volatileT1DamageFraction: 0.4
+    volatileT2Radius: 2.6
+    volatileT2ChainDepth: 1
+    greedT1MultPerKillBonus: 0.25
+    greedT1DecayRateBonus: 0.5
+    greedT2MultPerKillBonus: 0.5
+    greedT2DecayRateBonus: 1
+    greedT3ValueMultiplier: 1.5
   Feel:
     hitstopOnKill: 0.045
     hitstopOnPlayerHit: 0.09
