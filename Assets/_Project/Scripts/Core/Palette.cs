@@ -24,6 +24,13 @@ namespace Overdraft.Core
         public static readonly Color Banked = Hex("FFFFFF");
         public static readonly Color Warn = Hex("FF3BE1");
 
+        // THE VAULT's "warm palette" (FR-451, M2-T08). docs/04 specifies "warm, crushed blacks"
+        // for the LUT_Vault colour grade but gives no hex values for the floor mesh itself,
+        // which exists before that post-processing pass (M3) does. Judgment call: warm-toned
+        // counterparts to Void/Grid, same darkness so contrast rules still hold once lit.
+        public static readonly Color VaultVoid = Hex("140B07");
+        public static readonly Color VaultGrid = Hex("3B2414");
+
         /// <summary>Multiplies a colour's RGB while leaving alpha alone, for HDR emission.</summary>
         public static Color Intensity(Color c, float multiplier)
         {

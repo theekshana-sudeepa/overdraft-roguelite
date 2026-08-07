@@ -30,6 +30,9 @@ namespace Overdraft.UI
         [Header("Score")]
         [SerializeField] FastNumberText scoreNumber;
 
+        [Header("Wave")]
+        [SerializeField] TMP_Text waveText;
+
         [Header("Status")]
         [SerializeField] Image[] hpPips;
         [SerializeField] Image[] dashPips;
@@ -40,6 +43,9 @@ namespace Overdraft.UI
         // and never touches the value used for scoring.
         string[] multiplierStrings;
 
+        // Pre-baked wave labels — waves 1..6 only exist, so this is exhaustive, not a cap.
+        string[] waveStrings;
+
         float pulsePhase;
         long lastCharge;
 
@@ -47,6 +53,7 @@ namespace Overdraft.UI
         {
             if (tuning == null) { tuning = ServiceLocator.Tuning; }
             BuildMultiplierStrings();
+            BuildWaveStrings();
         }
 
         void OnEnable()
@@ -54,6 +61,7 @@ namespace Overdraft.UI
             GameEvents.ChargeChanged += OnChargeChanged;
             GameEvents.ScoreChanged += OnScoreChanged;
             GameEvents.MultiplierChanged += OnMultiplierChanged;
+            GameEvents.WaveStarted += OnWaveStarted;
             GameEvents.RunEnded += OnRunEnded;
             GameEvents.RunRestarted += OnRunRestarted;
         }
@@ -63,6 +71,7 @@ namespace Overdraft.UI
             GameEvents.ChargeChanged -= OnChargeChanged;
             GameEvents.ScoreChanged -= OnScoreChanged;
             GameEvents.MultiplierChanged -= OnMultiplierChanged;
+            GameEvents.WaveStarted -= OnWaveStarted;
             GameEvents.RunEnded -= OnRunEnded;
             GameEvents.RunRestarted -= OnRunRestarted;
         }
@@ -143,6 +152,13 @@ namespace Overdraft.UI
             if (scoreNumber != null) { scoreNumber.SetValue(value); }
         }
 
+        void OnWaveStarted(int wave)
+        {
+            if (waveText == null) { return; }
+            int index = Mathf.Clamp(wave - 1, 0, waveStrings.Length - 1);
+            waveText.SetText(waveStrings[index]);
+        }
+
         void OnMultiplierChanged(float value)
         {
             if (multiplierText == null) { return; }
@@ -168,6 +184,7 @@ namespace Overdraft.UI
             if (stateBanner != null) { stateBanner.gameObject.SetActive(false); }
             if (chargeNumber != null) { chargeNumber.Invalidate(); }
             if (scoreNumber != null) { scoreNumber.Invalidate(); }
+            if (waveText != null) { waveText.SetText(waveStrings[0]); }
             lastCharge = 0L;
             pulsePhase = 0f;
         }
@@ -181,11 +198,21 @@ namespace Overdraft.UI
             }
         }
 
+        void BuildWaveStrings()
+        {
+            waveStrings = new string[TotalWaves];
+            for (int i = 0; i < TotalWaves; i++)
+            {
+                waveStrings[i] = "WAVE " + (i + 1) + "/" + TotalWaves;
+            }
+        }
+
         /// <summary>Exposed for the HUD readability check in the Day-3 gate notes.</summary>
         public long DisplayedCharge => lastCharge;
 
         const float PulseHzPerMultiplier = 1f / 20f;
         const float PulseAmplitude = 0.04f;
         const int MultiplierStringCount = 1000;
+        const int TotalWaves = 6;
     }
 }

@@ -1,9 +1,9 @@
 namespace Overdraft.Generation
 {
     /// <summary>
-    /// One scheduled enemy spawn, produced by WaveGenerator (M2-T04) and consumed by EnemySpawner.
-    /// Position is expressed as polar coordinates on the spawn ring so the struct carries no
-    /// engine vector type and stays platform-independent.
+    /// One scheduled enemy spawn, produced by WaveGenerator and consumed by RunController's wave
+    /// loop. Position is expressed as polar coordinates on the spawn ring so the struct carries
+    /// no engine vector type and stays platform-independent.
     /// </summary>
     public readonly struct SpawnEvent
     {

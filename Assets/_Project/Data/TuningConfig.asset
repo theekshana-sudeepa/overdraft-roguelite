@@ -69,6 +69,13 @@ MonoBehaviour:
     interWaveDelay: 1.2
     introDuration: 1.5
     upgradeOffersShown: 3
+    drifterWeight: 70
+    spitterWeight: 20
+    splitterWeight: 10
+    drifterCost: 10
+    spitterCost: 40
+    splitterCost: 25
+    eliteWeightPercent: 20
     m1SpawnInterval: 1.1
     m1SpawnIntervalMin: 0.22
     m1SpawnRampPerSecond: 0.008
@@ -119,6 +126,9 @@ MonoBehaviour:
     separationRadius: 0.45
     separationStrength: 3.5
     maxEnemyRadius: 0.7
+  EnemyCombat:
+    projectileLifetime: 3
+    projectileRadius: 0.18
   Feel:
     hitstopOnKill: 0.045
     hitstopOnPlayerHit: 0.09

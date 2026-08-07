@@ -22,6 +22,7 @@ namespace Overdraft.Core
         public PoolTuning Pools;
         public SimTuning Sim;
         public EnemyCombatTuning EnemyCombat;
+        public UpgradeTuning Upgrades;
         public FeelTuning Feel;
         public RiskTier[] RiskTiers = new RiskTier[5];
         public long[] CreditRankThresholds = new long[12];
@@ -129,12 +130,6 @@ namespace Overdraft.Core
 
         /// <summary>Chance (0-100) that an eligible pick becomes an elite. Wave 5+ only (FR-304).</summary>
         public int eliteWeightPercent;
-
-        // M1 only: the endless trickle that stands in for waves until M2-T04 lands.
-        public float m1SpawnInterval;
-        public float m1SpawnIntervalMin;
-        public float m1SpawnRampPerSecond;
-        public int m1MaxAlive;
     }
 
     [System.Serializable]
@@ -224,6 +219,36 @@ namespace Overdraft.Core
         public float scaleMultiplier;
         public float outlineWidth;
         public float emissionBoost;
+    }
+
+    /// <summary>
+    /// SPREAD and VOLATILE tier values (FR-473). LEECH already lives in BankTuning
+    /// (leechT1/2/3Duration) and GREED's multiplier deltas live alongside it here since
+    /// MultiplierSystem's BonusPerKill/BonusDecayRate are the only place they're consumed.
+    /// Each tier field is the ABSOLUTE value once that tier is owned, not a delta stacked on
+    /// top of the previous tier — matching how BankTuning's leech fields already work.
+    /// </summary>
+    [System.Serializable]
+    public struct UpgradeTuning
+    {
+        public int spreadT1Projectiles;
+        public float spreadT1ConeDegrees;
+        public int spreadT2Projectiles;
+        public float spreadT2ConeDegrees;
+        public int spreadT3Projectiles;
+        public float spreadT3ConeDegrees;
+        public float spreadT3DamageMultiplier;
+
+        public float volatileT1Radius;
+        public float volatileT1DamageFraction;
+        public float volatileT2Radius;
+        public int volatileT2ChainDepth;
+
+        public float greedT1MultPerKillBonus;
+        public float greedT1DecayRateBonus;
+        public float greedT2MultPerKillBonus;
+        public float greedT2DecayRateBonus;
+        public float greedT3ValueMultiplier;
     }
 
     [System.Serializable]

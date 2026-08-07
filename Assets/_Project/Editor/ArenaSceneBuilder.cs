@@ -24,6 +24,7 @@ namespace Overdraft.EditorTools
             Scene scene = EditorSceneManager.NewScene(NewSceneSetup.EmptyScene, NewSceneMode.Single);
 
             GameObject arenaRoot = BuildArena(ctx);
+            GameObject vaultRoot = BuildVault(ctx);
             GameObject cameraRigGO = BuildCamera(ctx);
 
             GameObject systems = new GameObject("--- SYSTEMS ---");
@@ -43,13 +44,19 @@ namespace Overdraft.EditorTools
 
             GameObject enemyRoot = new GameObject("--- ENEMIES ---");
             EnemyManager enemyManager = enemyRoot.AddComponent<EnemyManager>();
-            EnemySpawner spawner = enemyRoot.AddComponent<EnemySpawner>();
             GameObject enemyPoolParent = EditorWiring.Child(enemyRoot, "Pool", Vector3.zero);
 
             GameObject projectilePool = new GameObject("--- PROJECTILES ---");
 
+            GameObject environmentGO = new GameObject("--- ENVIRONMENT ---");
+            EnvironmentController environment = environmentGO.AddComponent<EnvironmentController>();
+            HazardBar[] hazardBars = BuildHazardBars(ctx, environmentGO.transform);
+
+            UpgradeSystem upgrades = systems.AddComponent<UpgradeSystem>();
+
             GameObject bankRingGO = BuildBankRing(ctx);
             HudRefs hud = BuildHud(ctx);
+            UpgradeChoiceUI upgradeUI = BuildUpgradeChoiceUI(ctx);
 
             // --- Wiring ---------------------------------------------------------------
 
@@ -71,13 +78,29 @@ namespace Overdraft.EditorTools
             EditorWiring.Set(enemyManager, "puddlePrefab", ctx.PuddlePrefab.GetComponent<Puddle>());
             EditorWiring.Set(enemyManager, "poolParent", enemyPoolParent.transform);
 
-            EditorWiring.Set(spawner, "tuning", ctx.Tuning);
-            EditorWiring.Set(spawner, "enemies", enemyManager);
-
             EditorWiring.Set(weapon, "tuning", ctx.Tuning);
             EditorWiring.Set(weapon, "projectilePrefab", ctx.ProjectilePrefab.GetComponent<PlayerProjectile>());
             EditorWiring.Set(weapon, "poolParent", projectilePool.transform);
             EditorWiring.Set(weapon, "enemies", enemyManager);
+
+            CameraRig rig = cameraRigGO.GetComponent<CameraRig>();
+            EditorWiring.Set(rig, "tuning", ctx.Tuning);
+            EditorWiring.Set(rig, "target", playerController);
+
+            EditorWiring.Set(environment, "tuning", ctx.Tuning);
+            EditorWiring.Set(environment, "floorRoot", arenaRoot);
+            EditorWiring.Set(environment, "vaultRoot", vaultRoot);
+            EditorWiring.SetArray(environment, "hazardBars", hazardBars);
+            EditorWiring.Set(environment, "cameraRig", rig);
+            EditorWiring.Set(environment, "player", playerController);
+            EditorWiring.Set(environment, "weapon", weapon);
+
+            EditorWiring.Set(upgrades, "tuning", ctx.Tuning);
+            EditorWiring.Set(upgrades, "weapon", weapon);
+            EditorWiring.Set(upgrades, "bank", bank);
+            EditorWiring.Set(upgrades, "multiplier", multiplier);
+            EditorWiring.Set(upgrades, "health", health);
+            EditorWiring.Set(upgrades, "enemies", enemyManager);
 
             EditorWiring.Set(run, "tuning", ctx.Tuning);
             EditorWiring.Set(run, "input", input);
@@ -89,12 +112,10 @@ namespace Overdraft.EditorTools
             EditorWiring.Set(run, "multiplier", multiplier);
             EditorWiring.Set(run, "score", score);
             EditorWiring.Set(run, "bank", bank);
+            EditorWiring.Set(run, "upgrades", upgrades);
             EditorWiring.Set(run, "enemies", enemyManager);
-            EditorWiring.Set(run, "spawner", spawner);
-
-            CameraRig rig = cameraRigGO.GetComponent<CameraRig>();
-            EditorWiring.Set(rig, "tuning", ctx.Tuning);
-            EditorWiring.Set(rig, "target", playerController);
+            EditorWiring.Set(run, "environment", environment);
+            EditorWiring.Set(run, "upgradeUI", upgradeUI);
 
             ScreenShake shake = cameraRigGO.GetComponentInChildren<ScreenShake>();
             EditorWiring.Set(shake, "tuning", ctx.Tuning);
@@ -110,6 +131,7 @@ namespace Overdraft.EditorTools
             EditorWiring.Set(hud.Controller, "decayBarFill", hud.DecayBarFill);
             EditorWiring.Set(hud.Controller, "decayBarImage", hud.DecayBarImage);
             EditorWiring.Set(hud.Controller, "scoreNumber", hud.ScoreNumber);
+            EditorWiring.Set(hud.Controller, "waveText", hud.WaveText);
             EditorWiring.Set(hud.Controller, "stateBanner", hud.StateBanner);
             EditorWiring.SetArray(hud.Controller, "hpPips", hud.HpPips);
             EditorWiring.SetArray(hud.Controller, "dashPips", hud.DashPips);
@@ -137,6 +159,57 @@ namespace Overdraft.EditorTools
             AddMesh(boundary, ctx.BoundaryMesh, ctx.BoundaryMaterial);
 
             return root;
+        }
+
+        /// <summary>
+        /// THE VAULT (FR-451, FR-457): a second arena root in the SAME scene, inactive until
+        /// wave 4. Warm-toned floor, smaller radius, no boundary ring of its own — the hazard
+        /// bars are the Vault's danger tell instead.
+        /// </summary>
+        static GameObject BuildVault(BuildContext ctx)
+        {
+            GameObject root = new GameObject("--- VAULT ---");
+            float radius = ctx.Tuning.Arena.vaultRadius;
+
+            GameObject floor = EditorWiring.Child(root, "Floor", Vector3.zero);
+            floor.transform.localScale = new Vector3(radius, 1f, radius);
+            AddMesh(floor, ctx.DiscMesh, ctx.VaultFloorMaterial);
+
+            GameObject boundary = EditorWiring.Child(root, "BoundaryRing", new Vector3(0f, 0.01f, 0f));
+            boundary.transform.localScale = new Vector3(radius, 1f, radius);
+            AddMesh(boundary, ctx.BoundaryMesh, ctx.BoundaryMaterial);
+
+            root.SetActive(false);
+            return root;
+        }
+
+        static HazardBar[] BuildHazardBars(BuildContext ctx, Transform parent)
+        {
+            int count = ctx.Tuning.Arena.hazardBarCount;
+            HazardBar[] bars = new HazardBar[count];
+            float cycle = ctx.Tuning.Arena.hazardCycleDuration;
+
+            for (int i = 0; i < count; i++)
+            {
+                GameObject barGO = EditorWiring.Child(parent.gameObject, "HazardBar" + i, Vector3.zero);
+                HazardBar bar = barGO.AddComponent<HazardBar>();
+
+                GameObject visual = EditorWiring.Child(barGO, "Visual", Vector3.zero);
+                MeshRenderer renderer = AddMesh(visual, ctx.BarMesh, ctx.HazardMaterial);
+
+                EditorWiring.Set(bar, "tuning", ctx.Tuning);
+                EditorWiring.Set(bar, "visual", visual.transform);
+                EditorWiring.Set(bar, "meshRenderer", renderer);
+
+                // Evenly spaced phase offsets so the three bars don't all telegraph in sync —
+                // "3 rotating... bars", not one bar shown three times.
+                float phaseOffset = (cycle / count) * i;
+                bar.Configure(phaseOffset);
+
+                bars[i] = bar;
+            }
+
+            return bars;
         }
 
         static GameObject BuildCamera(BuildContext ctx)
@@ -273,6 +346,11 @@ namespace Overdraft.EditorTools
             refs.ScoreNumber = scoreText.gameObject.AddComponent<FastNumberText>();
             EditorWiring.Set(refs.ScoreNumber, "text", scoreText);
 
+            // WAVE — below SCORE, quieter still (docs/04 §6 layout).
+            TMP_Text waveText = NewText(canvasGO.transform, "WaveValue", "WAVE 1/6", 28f, Palette.Banked, TextAlignmentOptions.Right);
+            Place(waveText.rectTransform, new Vector2(1f, 1f), new Vector2(-60f, -130f), new Vector2(500f, 40f), new Vector2(1f, 1f));
+            refs.WaveText = waveText;
+
             // HP pips and dash charges — bottom left, Ion.
             refs.HpPips = new Object[3];
             for (int i = 0; i < 3; i++)
@@ -300,6 +378,80 @@ namespace Overdraft.EditorTools
             refs.StateBanner = banner;
 
             return refs;
+        }
+
+        /// <summary>
+        /// The M2 upgrade choice screen (FR-471, M2-T09). A separate overlay canvas, on top of
+        /// the HUD, with three side-by-side cards. Functional and ugly by design — see
+        /// UpgradeChoiceUI's own doc comment.
+        /// </summary>
+        static UpgradeChoiceUI BuildUpgradeChoiceUI(BuildContext ctx)
+        {
+            GameObject canvasGO = new GameObject("--- UPGRADE CHOICE ---", typeof(Canvas), typeof(CanvasScaler), typeof(GraphicRaycaster));
+            Canvas canvas = canvasGO.GetComponent<Canvas>();
+            canvas.renderMode = RenderMode.ScreenSpaceOverlay;
+            canvas.sortingOrder = 10;   // above the HUD canvas
+
+            CanvasScaler scaler = canvasGO.GetComponent<CanvasScaler>();
+            scaler.uiScaleMode = CanvasScaler.ScaleMode.ScaleWithScreenSize;
+            scaler.referenceResolution = new Vector2(1920f, 1080f);
+            scaler.screenMatchMode = CanvasScaler.ScreenMatchMode.MatchWidthOrHeight;
+            scaler.matchWidthOrHeight = 0.5f;
+
+            GameObject dim = EditorWiring.Child(canvasGO, "Dim", Vector3.zero);
+            RectTransform dimRect = dim.AddComponent<RectTransform>();
+            SetFull(dimRect);
+            Image dimImage = dim.AddComponent<Image>();
+            dimImage.color = new Color(Palette.Void.r, Palette.Void.g, Palette.Void.b, 0.80f);
+
+            TMP_Text title = NewText(canvasGO.transform, "Title", "CHOOSE AN UPGRADE", 44f, Palette.Banked, TextAlignmentOptions.Center);
+            Place(title.rectTransform, new Vector2(0.5f, 1f), new Vector2(0f, -100f), new Vector2(1000f, 60f));
+
+            const int cardCount = 3;
+            const float cardWidth = 460f;
+            const float cardHeight = 320f;
+            const float gap = 40f;
+            float totalWidth = cardCount * cardWidth + (cardCount - 1) * gap;
+            float startX = -totalWidth * 0.5f + cardWidth * 0.5f;
+
+            RectTransform[] cardRects = new RectTransform[cardCount];
+            Object[] cardTexts = new Object[cardCount];
+            Object[] cardHighlights = new Object[cardCount];
+
+            for (int i = 0; i < cardCount; i++)
+            {
+                float x = startX + i * (cardWidth + gap);
+
+                RectTransform card = NewRect(canvasGO.transform, "Card" + i,
+                    new Vector2(0.5f, 0.5f), new Vector2(0.5f, 0.5f), new Vector2(x, 0f), new Vector2(cardWidth, cardHeight));
+
+                Image cardBg = card.gameObject.AddComponent<Image>();
+                cardBg.color = new Color(Palette.Grid.r, Palette.Grid.g, Palette.Grid.b, 0.9f);
+
+                RectTransform border = NewRect(card, "Highlight", Vector2.zero, Vector2.one, Vector2.zero, Vector2.zero);
+                SetFull(border);
+                Image highlight = border.gameObject.AddComponent<Image>();
+                highlight.color = Palette.Grid;
+                highlight.raycastTarget = false;
+
+                TMP_Text cardText = NewText(card, "Text", "", 28f, Palette.Banked, TextAlignmentOptions.Center);
+                SetFull(cardText.rectTransform);
+                cardText.enableWordWrapping = true;
+
+                cardRects[i] = card;
+                cardTexts[i] = cardText;
+                cardHighlights[i] = highlight;
+            }
+
+            UpgradeChoiceUI ui = canvasGO.AddComponent<UpgradeChoiceUI>();
+            EditorWiring.Set(ui, "tuning", ctx.Tuning);
+            EditorWiring.Set(ui, "root", canvasGO);
+            EditorWiring.Set(ui, "canvas", canvas);
+            EditorWiring.SetArray(ui, "cardRects", cardRects);
+            EditorWiring.SetArray(ui, "cardTexts", cardTexts);
+            EditorWiring.SetArray(ui, "cardHighlights", cardHighlights);
+
+            return ui;
         }
 
         static MeshRenderer AddMesh(GameObject go, Mesh mesh, Material material)
@@ -378,6 +530,7 @@ namespace Overdraft.EditorTools
             public RectTransform DecayBarFill;
             public Image DecayBarImage;
             public FastNumberText ScoreNumber;
+            public TMP_Text WaveText;
             public TMP_Text StateBanner;
             public Object[] HpPips;
             public Object[] DashPips;

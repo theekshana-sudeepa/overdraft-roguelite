@@ -23,22 +23,14 @@ namespace Overdraft.Core
         Vault = 1
     }
 
-    /// <summary>The four upgrade lines. Tier is carried separately (FR-472).</summary>
-    public enum UpgradeLine
-    {
-        Spread = 0,
-        Volatile = 1,
-        Leech = 2,
-        Greed = 3
-    }
-
-    /// <summary>A specific offer: a line plus the tier it would grant (1..3).</summary>
+    /// <summary>A specific offer: a line plus the tier it would grant (1..3). UpgradeLine lives
+    /// in Generation/ (CLAUDE.md §6) since UpgradeOfferGenerator, a pure function, needs it.</summary>
     public readonly struct UpgradeId
     {
-        public readonly UpgradeLine Line;
+        public readonly Generation.UpgradeLine Line;
         public readonly int Tier;
 
-        public UpgradeId(UpgradeLine line, int tier)
+        public UpgradeId(Generation.UpgradeLine line, int tier)
         {
             Line = line;
             Tier = tier;

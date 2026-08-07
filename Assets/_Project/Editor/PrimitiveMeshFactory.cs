@@ -100,6 +100,26 @@ namespace Overdraft.EditorTools
             return mesh;
         }
 
+        /// <summary>
+        /// A bar extending from the LOCAL ORIGIN out along +Z to length 1, width 1 (centred on
+        /// X). Unlike Quad (centred at origin), this lets a hazard bar's transform sit at the
+        /// arena centre and simply rotate to sweep, with scale controlling width and reach.
+        /// </summary>
+        public static Mesh Bar()
+        {
+            Mesh mesh = new Mesh { name = "M_Bar" };
+            mesh.vertices = new[]
+            {
+                new Vector3(-0.5f, 0f, 0f),
+                new Vector3(0.5f, 0f, 0f),
+                new Vector3(0.5f, 0f, 1f),
+                new Vector3(-0.5f, 0f, 1f)
+            };
+            mesh.triangles = new[] { 0, 2, 1, 0, 3, 2 };
+            Finish(mesh);
+            return mesh;
+        }
+
         /// <summary>Arena floor. A unit-radius disc in the XZ plane.</summary>
         public static Mesh Disc(int segments = 96)
         {

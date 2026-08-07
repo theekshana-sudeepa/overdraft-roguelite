@@ -25,7 +25,9 @@ MonoBehaviour:
   projectileSpeed: 0
   puddleDuration: 0
   puddleRadius: 0
+  approachSpeed: 0
   windupDuration: 0
   chargeDuration: 0
+  chargeCooldown: 0
   splitCount: 0
   splitScatterRadius: 0

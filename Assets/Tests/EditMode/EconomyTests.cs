@@ -138,6 +138,12 @@ namespace Overdraft.Tests
             Assert.AreEqual(banked, fx.Score.Current);
             Assert.AreEqual(0L, fx.Charge.Current);
             Assert.AreEqual(fx.Tuning.Economy.multMin, fx.Multiplier.Current, 1e-4f, "banking costs the multiplier");
+
+            // Holding the input continuously past completion is intended, not a bug: a player who
+            // keeps holding Bank sweeps up any further trickle-in CHARGE automatically, so
+            // BankSystem legitimately starts a fresh cycle on the next tick rather than idling.
+            // Release to observe the settled state.
+            fx.Advance(0.05f, bankHeld: false);
             Assert.IsFalse(fx.Bank.IsBanking);
         }
 
@@ -201,6 +207,10 @@ namespace Overdraft.Tests
 
             Assert.AreEqual(0L, fx.Score.Current);
             Assert.AreEqual(1, fx.Score.BankCount);
+
+            // See Bank_TransfersFullChargeAndResetsMultiplier: continuing to hold legitimately
+            // starts a new cycle. Release before checking the settled state.
+            fx.Advance(0.05f, bankHeld: false);
             Assert.IsFalse(fx.Bank.IsBanking);
         }
 

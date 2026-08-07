@@ -77,11 +77,17 @@ namespace Overdraft.Player
             }
         }
 
-        /// <summary>Returns true if the dash started. Refused while banking (FR-106).</summary>
+        /// <summary>
+        /// Returns true if the dash started. Refused while banking (FR-106) — UNLESS LEECH T2
+        /// is owned, in which case the dash is allowed and costs some bank hold progress instead
+        /// of being blocked outright (QA case 5).
+        /// </summary>
         public bool TryDash(in Vector3 requestedDirection)
         {
             if (IsDashing) { return false; }
-            if (bank.IsBanking) { return false; }
+
+            bool leechAllowsDashWhileBanking = bank.IsBanking && bank.LeechTier >= 2;
+            if (bank.IsBanking && !leechAllowsDashWhileBanking) { return false; }
 
             int slot = -1;
             for (int i = 0; i < cooldowns.Length; i++)
@@ -92,6 +98,11 @@ namespace Overdraft.Player
 
             Vector3 dir = MathX.NormalizeXZ(requestedDirection);
             if (dir == Vector3.zero) { return false; }
+
+            if (leechAllowsDashWhileBanking)
+            {
+                bank.RefundProgress(tuning.Bank.leechT2DashRefund);
+            }
 
             cooldowns[slot] = tuning.Dash.chargeCooldown;
             direction = dir;

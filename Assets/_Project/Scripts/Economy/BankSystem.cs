@@ -109,6 +109,22 @@ namespace Overdraft.Economy
             }
         }
 
+        /// <summary>
+        /// LEECH T2 lets a dash happen mid-bank instead of being refused outright, at the cost
+        /// of some hold progress (QA case 5). DashModule calls this; it never cancels the bank.
+        /// </summary>
+        public void RefundProgress(float seconds)
+        {
+            if (!IsBanking || seconds <= 0f) { return; }
+
+            holdTimer -= seconds;
+            if (holdTimer < 0f) { holdTimer = 0f; }
+
+            float duration = EffectiveDuration;
+            Progress01 = duration > 0f ? Mathf.Clamp01(holdTimer / duration) : 1f;
+            GameEvents.RaiseBankProgress(Progress01);
+        }
+
         /// <summary>Damage landed mid-bank (FR-208). The hit penalty itself is PlayerHealth's job.</summary>
         public void Interrupt()
         {

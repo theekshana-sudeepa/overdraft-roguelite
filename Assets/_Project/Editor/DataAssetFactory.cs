@@ -111,11 +111,6 @@ namespace Overdraft.EditorTools
                 introDuration = 1.50f,
                 upgradeOffersShown = 3,
 
-                m1SpawnInterval = 1.10f,
-                m1SpawnIntervalMin = 0.22f,
-                m1SpawnRampPerSecond = 0.008f,
-                m1MaxAlive = 120,
-
                 drifterWeight = 70,
                 spitterWeight = 20,
                 splitterWeight = 10,
@@ -184,6 +179,28 @@ namespace Overdraft.EditorTools
                 // for margin since the player can be moving away when a shot is fired.
                 projectileLifetime = 3.00f,
                 projectileRadius = 0.18f
+            };
+
+            config.Upgrades = new UpgradeTuning
+            {
+                spreadT1Projectiles = 2,
+                spreadT1ConeDegrees = 15f,
+                spreadT2Projectiles = 3,
+                spreadT2ConeDegrees = 25f,
+                spreadT3Projectiles = 5,
+                spreadT3ConeDegrees = 40f,
+                spreadT3DamageMultiplier = 0.80f,
+
+                volatileT1Radius = 1.6f,
+                volatileT1DamageFraction = 0.40f,
+                volatileT2Radius = 2.6f,
+                volatileT2ChainDepth = 1,
+
+                greedT1MultPerKillBonus = 0.25f,
+                greedT1DecayRateBonus = 0.50f,
+                greedT2MultPerKillBonus = 0.50f,
+                greedT2DecayRateBonus = 1.00f,
+                greedT3ValueMultiplier = 1.50f
             };
 
             config.Sim = new SimTuning

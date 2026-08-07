@@ -1,8 +1,11 @@
+using System.Collections.Generic;
 using UnityEngine;
 using UnityEngine.InputSystem;
 using Overdraft.Economy;
 using Overdraft.Enemies;
+using Overdraft.Generation;
 using Overdraft.Player;
+using Overdraft.UI;
 
 namespace Overdraft.Core
 {
@@ -11,9 +14,13 @@ namespace Overdraft.Core
     /// fixed-step simulation is ordered.
     /// <para>
     /// Every gameplay system is ticked from here in an explicit sequence rather than from its
-    /// own FixedUpdate. Unity does not guarantee an order between MonoBehaviours, and C8 requires
-    /// the simulation to be deterministic from a seed — an implicit order would make that
-    /// impossible to hold as the project grows.
+    /// own FixedUpdate — Unity does not guarantee an order between MonoBehaviours, and C8
+    /// requires the simulation to be deterministic from a seed.
+    /// </para>
+    /// <para>
+    /// ⚠️ Wave 6 clearing currently goes straight to Results. THE AUDITOR (M2-T11–T14) inserts a
+    /// BossIntro → BossActive → BossDefeated sequence at that exact transition point on Day 6 —
+    /// this is a sequencing choice, not a scope cut; see the session summary.
     /// </para>
     /// </summary>
     public sealed class RunController : MonoBehaviour
@@ -32,10 +39,14 @@ namespace Overdraft.Core
         [SerializeField] MultiplierSystem multiplier;
         [SerializeField] ScoreSystem score;
         [SerializeField] BankSystem bank;
+        [SerializeField] UpgradeSystem upgrades;
 
         [Header("World")]
         [SerializeField] EnemyManager enemies;
-        [SerializeField] EnemySpawner spawner;
+        [SerializeField] EnvironmentController environment;
+
+        [Header("UI")]
+        [SerializeField] UpgradeChoiceUI upgradeUI;
 
         float stateTimer;
         float runTime;
@@ -43,13 +54,26 @@ namespace Overdraft.Core
         int runSeed;
         bool restartArmed;
 
+        int currentWave;
+        readonly List<SpawnEvent> pendingSpawns = new List<SpawnEvent>(64);
+        int nextSpawnIndex;
+        float waveElapsed;
+
+        readonly List<UpgradeOffer> currentOffers = new List<UpgradeOffer>(4);
+        readonly int[] offerTierBuffer = new int[4];
+        int offerRoundIndex;
+
+        EnemyType[] rulesTypes1, rulesTypes2, rulesTypes3;
+        int[] rulesWeights1, rulesWeights2, rulesWeights3;
+        int[] rulesCosts1, rulesCosts2, rulesCosts3;
+
         public RunState State { get; private set; } = RunState.Intro;
         public float RunTime => runTime;
         public int Kills => kills;
+        public int CurrentWave => currentWave;
         public int RiskTierIndex { get; set; }
 
-        /// <summary>True while the player is expected to be playing. Drives HUD visibility.</summary>
-        public bool IsGameplayActive => State == RunState.WaveActive;
+        public bool IsGameplayActive => State == RunState.WaveActive || State == RunState.BossActive;
 
         public ChargeSystem Charge => charge;
         public MultiplierSystem Multiplier => multiplier;
@@ -58,11 +82,13 @@ namespace Overdraft.Core
         public PlayerHealth Health => health;
         public DashModule Dash => dash;
         public PlayerController Player => player;
+        public UpgradeSystem Upgrades => upgrades;
 
         void Awake()
         {
             if (tuning == null) { tuning = ServiceLocator.Tuning; }
             ServiceLocator.Run = this;
+            CacheWaveRuleArrays();
         }
 
         void OnEnable()
@@ -92,8 +118,7 @@ namespace Overdraft.Core
         void Update()
         {
             // Restart lives in Update, not FixedUpdate, so death-to-playing is bounded by frame
-            // time rather than by the fixed step. G1 puts a hard 2.0s ceiling on this and it is
-            // a design requirement, not polish.
+            // time rather than by the fixed step. G1 puts a hard 2.0s ceiling on this.
             if (State != RunState.Results || !restartArmed) { return; }
             if (!AnyRestartInputThisFrame()) { return; }
 
@@ -108,12 +133,20 @@ namespace Overdraft.Core
             {
                 case RunState.Intro:
                     stateTimer -= dt;
-                    if (stateTimer <= 0f) { EnterWaveActive(); }
+                    if (stateTimer <= 0f) { EnterWaveActive(1); }
                     return;
 
                 case RunState.WaveActive:
                     StepGameplay(dt);
                     return;
+
+                case RunState.WaveCleared:
+                    stateTimer -= dt;
+                    if (stateTimer <= 0f) { EnterUpgradeChoiceOrNextWave(); }
+                    return;
+
+                case RunState.UpgradeChoice:
+                    return;   // waiting on UpgradeChoiceUI; see OnUpgradeChosen
 
                 case RunState.Death:
                     stateTimer -= dt;
@@ -126,19 +159,20 @@ namespace Overdraft.Core
         }
 
         /// <summary>
-        /// THE FIXED-STEP ORDER. Changing it changes the game — read the comments before
-        /// reordering anything here.
+        /// THE FIXED-STEP ORDER for live gameplay. Changing it changes the game — read the
+        /// comments before reordering anything here.
         /// </summary>
         void StepGameplay(float dt)
         {
             runTime += dt;
+            upgrades.Tick();
 
             // 1. Bank first. If a bank completes this step, the player is mobile again for the
             //    rest of it; if it is still held, movement below is zeroed.
             bank.OnBankInputChanged(input.BankHeld);
             bank.Tick(dt);
 
-            // 2. Dash requests are refused while banking, so this must follow the bank tick.
+            // 2. Dash requests are refused while banking (unless LEECH T2), so this follows bank.
             if (input.ConsumeDash())
             {
                 dash.TryDash(player.AimDirection);
@@ -154,23 +188,54 @@ namespace Overdraft.Core
             // 4. Projectiles resolve against the freshly rebuilt grid.
             weapon.Tick(dt);
 
-            // 5. Contact damage last, so a player who dashed clear this step is genuinely clear.
-            //    Hazards (Spitter projectiles/puddles) and direct enemy-body contact both funnel
-            //    into the same TryTakeDamage call — PlayerHealth's invuln window is what prevents
-            //    a puddle plus a Drifter from stacking into more than one hit per window.
+            // 5. Every damage source funnels into one TryTakeDamage call; PlayerHealth's invuln
+            //    window is what prevents more than one hit per window regardless of how many
+            //    hazards overlapped simultaneously.
             int hazardDamage = enemies.AdvanceHazards(dt, player.Position, tuning.Player.hitboxRadius);
+            int vaultDamage = environment.TickHazards(dt);
             int contactDamage = enemies.QueryPlayerContact(player.Position, tuning.Player.hitboxRadius);
-            int totalDamage = Mathf.Max(hazardDamage, contactDamage);
+            int totalDamage = Mathf.Max(hazardDamage, Mathf.Max(vaultDamage, contactDamage));
             if (totalDamage > 0)
             {
                 health.TryTakeDamage(totalDamage);
             }
 
-            spawner.Tick(dt);
-
-            // 6. MULT decay is the clock the whole game is played against. It runs last so a
-            //    kill this step always refreshes grace before any decay can be applied.
             multiplier.Tick(dt);
+
+            // 6. Wave spawn scheduling and clear/timeout check, last.
+            TickWaveSpawning(dt);
+        }
+
+        void TickWaveSpawning(float dt)
+        {
+            waveElapsed += dt;
+
+            while (nextSpawnIndex < pendingSpawns.Count && pendingSpawns[nextSpawnIndex].DelaySeconds <= waveElapsed)
+            {
+                SpawnEvent e = pendingSpawns[nextSpawnIndex];
+                nextSpawnIndex++;
+
+                float x = Mathf.Sin(e.RingAngleRad) * e.RingRadius;
+                float z = Mathf.Cos(e.RingAngleRad) * e.RingRadius;
+                Vector3 pos = Utility.MathX.ClampToCircleXZ(
+                    new Vector3(x, 0f, z), environment.CurrentArenaRadius - tuning.Sim.maxEnemyRadius);
+
+                // Null means the pool is exhausted. Skip silently (docs/01 §6) — never grow it.
+                enemies.Spawn(e.Type, pos, e.IsElite);
+            }
+
+            // QA case 1: a bank in progress when the last enemy dies must complete FIRST — the
+            // wave is not allowed to advance mid-bank.
+            if (bank.IsBanking) { return; }
+
+            bool allSpawned = nextSpawnIndex >= pendingSpawns.Count;
+            bool allDead = enemies.AliveCount == 0;
+            bool timedOut = waveElapsed >= tuning.Wave.waveTimeout;
+
+            if ((allSpawned && allDead) || timedOut)
+            {
+                EnterWaveCleared();
+            }
         }
 
         void BeginRun(int seed)
@@ -178,6 +243,8 @@ namespace Overdraft.Core
             runSeed = seed;
             runTime = 0f;
             kills = 0;
+            currentWave = 0;
+            offerRoundIndex = 0;
             restartArmed = false;
 
             RiskTier risk = tuning.Risk(RiskTierIndex);
@@ -185,6 +252,7 @@ namespace Overdraft.Core
             charge.ResetForRun();
             multiplier.ResetForRun();
             score.ResetForRun();
+            upgrades.ResetForRun();
             bank.ResetForRun();
             bank.RiskScoreMultiplier = risk.scoreMultiplier;
 
@@ -196,8 +264,9 @@ namespace Overdraft.Core
 
             enemies.ReturnAll();
             enemies.RiskSpeedMultiplier = risk.enemySpeedMultiplier;
-            spawner.ResetForRun(runSeed);
-            spawner.IsSpawning = false;
+
+            environment.ResetForRun();
+            upgradeUI.Hide();
 
             input.ClearBuffers();
 
@@ -206,13 +275,68 @@ namespace Overdraft.Core
             GameEvents.RaiseRunRestarted();
         }
 
-        void EnterWaveActive()
+        void EnterWaveActive(int wave)
         {
-            State = RunState.WaveActive;
-            spawner.IsSpawning = true;
+            currentWave = wave;
 
-            // M1 runs one endless wave. Real waves land in M2-T07.
-            GameEvents.RaiseWaveStarted(1);
+            // FR-451: environment swap happens on entry to WaveActive(4). No scene load.
+            if (wave == 4)
+            {
+                environment.SwitchTo(EnvironmentId.Vault);
+            }
+
+            RiskTier risk = tuning.Risk(RiskTierIndex);
+            WaveRules rules = BuildWaveRules(wave);
+            WaveGenerator.Generate(runSeed, wave, risk.enemyBudgetMultiplier, rules, pendingSpawns);
+
+            nextSpawnIndex = 0;
+            waveElapsed = 0f;
+
+            State = RunState.WaveActive;
+            GameEvents.RaiseWaveStarted(wave);
+        }
+
+        void EnterWaveCleared()
+        {
+            State = RunState.WaveCleared;
+            stateTimer = tuning.Wave.interWaveDelay;
+            GameEvents.RaiseWaveCleared(currentWave);
+        }
+
+        void EnterUpgradeChoiceOrNextWave()
+        {
+            if (currentWave >= 6)
+            {
+                // TODO(M2-T11–T14): THE AUDITOR belongs here — BossIntro -> BossActive ->
+                // BossDefeated -> forced free bank -> Results. Until Day 6 lands, a cleared
+                // wave 6 ends the run directly so the loop stays honestly playable end to end.
+                EnterResults();
+                return;
+            }
+
+            upgrades.CopyTiersInto(offerTierBuffer);
+            UpgradeOfferGenerator.Generate(runSeed, offerRoundIndex, offerTierBuffer, currentOffers, tuning.Wave.upgradeOffersShown);
+            offerRoundIndex++;
+
+            if (currentOffers.Count == 0)
+            {
+                // Every line maxed — nothing to offer (FR-472: "offer what exists").
+                EnterWaveActive(currentWave + 1);
+                return;
+            }
+
+            State = RunState.UpgradeChoice;
+            upgradeUI.Show(currentOffers, OnUpgradeChosen);
+        }
+
+        void OnUpgradeChosen(int offerIndex)
+        {
+            if (offerIndex < 0 || offerIndex >= currentOffers.Count) { return; }
+
+            UpgradeOffer offer = currentOffers[offerIndex];
+            upgrades.Take(offer.Line, offer.Tier);
+
+            EnterWaveActive(currentWave + 1);
         }
 
         void EnterResults()
@@ -237,11 +361,12 @@ namespace Overdraft.Core
             kills++;
 
             // ⚠️ THE ONE DOCUMENTED EXCEPTION TO THE EVENT BUS (docs/01 §10).
-            // Multiplier first, then charge. If these were two independent subscribers, the
-            // subscription order would decide whether a kill is valued at the old or the new
-            // multiplier — and subscription order is not guaranteed.
+            // Multiplier first, then charge — subscription order is not guaranteed, so these two
+            // cannot be independent bus subscribers. GREED T3's value multiplier is applied here
+            // too, since RunController already owns this special-cased kill handling.
             multiplier.AddKill();
-            charge.AddFromKill(args.BaseValue, multiplier.Current);
+            int scaledValue = Mathf.RoundToInt(args.BaseValue * upgrades.GreedValueMultiplier);
+            charge.AddFromKill(scaledValue, multiplier.Current);
         }
 
         void OnBankCompleted(long amount)
@@ -257,8 +382,42 @@ namespace Overdraft.Core
             State = RunState.Death;
             stateTimer = tuning.Player.deathBeatDuration;
 
-            spawner.IsSpawning = false;
+            upgradeUI.Hide();
             input.ClearBuffers();
+        }
+
+        WaveRules BuildWaveRules(int wave)
+        {
+            bool elitesAllowed = wave >= 5;
+
+            EnemyType[] types;
+            int[] weights;
+            int[] costs;
+
+            if (wave <= 1) { types = rulesTypes1; weights = rulesWeights1; costs = rulesCosts1; }
+            else if (wave == 2) { types = rulesTypes2; weights = rulesWeights2; costs = rulesCosts2; }
+            else { types = rulesTypes3; weights = rulesWeights3; costs = rulesCosts3; }
+
+            return new WaveRules(
+                wave, types, weights, costs, elitesAllowed, tuning.Wave.eliteWeightPercent,
+                tuning.Wave.waveTimeout, tuning.Wave.spawnRingMin, tuning.Wave.spawnRingMax,
+                tuning.Elite.budgetMultiplier,
+                tuning.Wave.budgetBase, tuning.Wave.budgetExponent, tuning.Wave.budgetScale);
+        }
+
+        void CacheWaveRuleArrays()
+        {
+            rulesTypes1 = new[] { EnemyType.Drifter };
+            rulesWeights1 = new[] { tuning.Wave.drifterWeight };
+            rulesCosts1 = new[] { tuning.Wave.drifterCost };
+
+            rulesTypes2 = new[] { EnemyType.Drifter, EnemyType.Spitter };
+            rulesWeights2 = new[] { tuning.Wave.drifterWeight, tuning.Wave.spitterWeight };
+            rulesCosts2 = new[] { tuning.Wave.drifterCost, tuning.Wave.spitterCost };
+
+            rulesTypes3 = new[] { EnemyType.Drifter, EnemyType.Spitter, EnemyType.Splitter };
+            rulesWeights3 = new[] { tuning.Wave.drifterWeight, tuning.Wave.spitterWeight, tuning.Wave.splitterWeight };
+            rulesCosts3 = new[] { tuning.Wave.drifterCost, tuning.Wave.spitterCost, tuning.Wave.splitterCost };
         }
 
         static bool AnyRestartInputThisFrame()
@@ -275,9 +434,9 @@ namespace Overdraft.Core
         }
 
         /// <summary>
-        /// M1 runs are unseeded from the player's point of view — ENDLESS, DAILY and CUSTOM SEED
-        /// all arrive in M2-T08. The value still feeds the deterministic jitter streams so a run
-        /// is internally reproducible today.
+        /// M2 runs are still unseeded from the player's point of view — ENDLESS/DAILY/CUSTOM
+        /// SEED mode selection is M2-T15. The value already drives WaveGenerator, so a run is
+        /// internally reproducible today; only the "pick a mode" layer is missing.
         /// </summary>
         static int NewSeed()
         {

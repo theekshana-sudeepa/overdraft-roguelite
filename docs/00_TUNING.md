@@ -368,21 +368,13 @@ modifiers and pool sizes above were previously prose; the values are unchanged.
 | `WaveTuning` | `introDuration` | `1.50` | The pre-wave intro beat, specified in ARCH §5 but not tunable |
 | `FeelTuning` | `cameraAimLead` | `0.25` | Was a literal `0.25` inside the camera formula in docs/04 §5 |
 
-### M1-only scaffolding — delete when M2-T07 lands
+### M1-only scaffolding — REMOVED at M2-T07
 
-M1 has no waves. These drive the endless trickle that stands in for them so the Day-3 gate can
-be played. **They are not shipping values and must be removed with the M1 spawner.**
-
-| Struct | Field | Value | Meaning |
-|---|---|---|---|
-| `WaveTuning` | `m1SpawnInterval` | `1.10` | Seconds between spawns at t=0 |
-| `WaveTuning` | `m1SpawnIntervalMin` | `0.22` | Floor the interval ramps down to |
-| `WaveTuning` | `m1SpawnRampPerSecond` | `0.008` | Interval reduction per second of run time |
-| `WaveTuning` | `m1MaxAlive` | `120` | Concurrent enemy ceiling, below the 220 pool cap |
-
-At these values the pressure curve is roughly: ~1 enemy/s at the start, ~2/s at 60s,
-~4.5/s at 110s, floored from ~110s onward. That is deliberately steeper than a real wave, because
-the Day-3 gate needs to reach a high MULT inside a ten-minute session.
+`Wave.m1SpawnInterval`, `m1SpawnIntervalMin`, `m1SpawnRampPerSecond`, `m1MaxAlive` and the
+`EnemySpawner` component that read them existed only so the Day-3 gate had something to fight.
+Both were deleted the moment the real `WaveGenerator`-driven wave loop landed. If you still have
+a `TuningConfig.asset` generated before this change, re-run `Overdraft > Build Project` — it
+deletes and recreates the asset from scratch, so the stale fields simply disappear.
 
 ---
 
@@ -452,6 +444,68 @@ recorded here since the source document only specified the four patterns qualita
 
 ---
 
+## Added during M2 Day-5 implementation (waves, upgrades, Vault)
+
+### `UpgradeTuning` — new struct
+
+FR-473 states each upgrade line's tier effects, but SPREAD and VOLATILE's actual numbers had no
+`TuningConfig` home (LEECH already lives in `BankTuning`'s `leechT1/2/3Duration`; GREED's deltas
+live on `MultiplierSystem.BonusPerKill/BonusDecayRate`, so only their source constants were
+missing). **Each tier field is the ABSOLUTE value once that tier is owned, not a delta stacked
+on the previous tier** — the same idiom `leechT1/2/3Duration` already uses.
+
+```csharp
+[System.Serializable] public struct UpgradeTuning
+{
+    public int   spreadT1Projectiles;       // 2      total shots, not "+1"
+    public float spreadT1ConeDegrees;       // 15
+    public int   spreadT2Projectiles;       // 3
+    public float spreadT2ConeDegrees;       // 25
+    public int   spreadT3Projectiles;       // 5
+    public float spreadT3ConeDegrees;       // 40
+    public float spreadT3DamageMultiplier;  // 0.80
+
+    public float volatileT1Radius;          // 1.6
+    public float volatileT1DamageFraction;  // 0.40  of the player's own projectileDamage
+    public float volatileT2Radius;          // 2.6   (T3 reuses T2's radius/fraction)
+    public int   volatileT2ChainDepth;      // 1     (T3 is unbounded, safety-capped at 40/step)
+
+    public float greedT1MultPerKillBonus;   // 0.25
+    public float greedT1DecayRateBonus;     // 0.50
+    public float greedT2MultPerKillBonus;   // 0.50
+    public float greedT2DecayRateBonus;     // 1.00
+    public float greedT3ValueMultiplier;    // 1.50
+}
+```
+
+**Judgment call:** VOLATILE's "damage 0.40×" doesn't state its base. Implemented as 0.40× the
+player's own `Weapon.projectileDamage` (1), floored to a minimum of 1 — at these tuning values an
+explosion always deals exactly 1, one-shotting a Drifter but not a Spitter. Revisit if playtesting
+shows explosions are too strong or too weak once enemy HP pools grow.
+
+**Judgment call:** "chained kills grant full MULT" (VOLATILE T3) is implemented as the *default*
+behaviour at every tier — `RunController.OnEnemyKilled` already applies full MULT/CHARGE credit to
+every kill regardless of source, so T3's real differentiator is its unbounded chain depth, not a
+MULT bonus that T1/T2 lack. No number in the source doc specified a T1/T2 penalty to implement.
+
+### Environment & hazard notes (FR-457) — not new tunables, but decisions made while implementing
+
+`ArenaTuning` already had every number `HazardBar` needed (`hazardCycleDuration`, `hazardBarWidth`,
+`hazardTelegraphTime`, `hazardBarCount`). The only undocumented behaviour was the shape of the
+cycle itself: for the first `hazardTelegraphTime` seconds of each `hazardCycleDuration` window the
+bar is a dim, harmless telegraph; for the remainder it is lethal. The bar rotates continuously
+(one full revolution per cycle) through both phases — continuity is what makes the pattern
+learnable, per FR-457's explicit "not seeded, must be learnable" requirement.
+
+### `RunController` boss placeholder
+
+Wave 6 clearing currently transitions straight to `Results`. THE AUDITOR (M2-T11–T14, Day 6)
+inserts `BossIntro → BossActive → BossDefeated → forced free bank` at that exact point. This is a
+sequencing decision — building a throwaway boss placeholder now would just be rewritten on Day 6 —
+not a scope cut. Flagged again in the M2-T07 task's completion note.
+
+---
+
 ## Tuning changelog
 
 Append a row every time a value changes. Never edit silently.
@@ -467,7 +521,7 @@ Append a row every time a value changes. Never edit silently.
 | 2026-08-07 | `Player.deathBeatDuration` | — | `1.00` | New. M1-T14 |
 | 2026-08-07 | `Wave.introDuration` | — | `1.50` | New. Was prose in ARCH §5 |
 | 2026-08-07 | `Feel.cameraAimLead` | — | `0.25` | New. Was a literal in the docs/04 §5 formula |
-| 2026-08-07 | `Wave.m1*` | — | see above | New. M1 scaffolding only — delete at M2-T07 |
+| 2026-08-07 | `Wave.m1*` | — | *(removed)* | M2-T07 landed; the M1 endless spawner and its fields were deleted together |
 | 2026-08-07 | `EnemyCombat.projectileLifetime` | — | `3.00` | New. Needed to pool SPITTER's projectile (M2-T01) |
 | 2026-08-07 | `EnemyCombat.projectileRadius` | — | `0.18` | New. Same |
 | 2026-08-07 | `Wave.drifterWeight/spitterWeight/splitterWeight` | — | `70/20/10` | New. WaveGenerator's weighted-selection input (M2-T04) |
@@ -475,3 +529,6 @@ Append a row every time a value changes. Never edit silently.
 | 2026-08-07 | `Wave.eliteWeightPercent` | — | `20` | New. Was a footnote ("20% weight"), had no field |
 | 2026-08-07 | `EnemyDefinition(Splitter).approachSpeed` | — | `1.50` | New. The table listed two speeds, the schema had one field |
 | 2026-08-07 | `EnemyDefinition(Splitter).chargeCooldown` | — | `1.60` | New. Needed by the approach/windup/charge state loop |
+| 2026-08-07 | `Upgrades.spread*` | — | see above | New. SPREAD tier numbers had no TuningConfig home (M2-T10) |
+| 2026-08-07 | `Upgrades.volatile*` | — | see above | New. Same, VOLATILE |
+| 2026-08-07 | `Upgrades.greed*` | — | see above | New. Same, GREED's deltas |

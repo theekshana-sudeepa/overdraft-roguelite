@@ -27,6 +27,7 @@ namespace Overdraft.EditorTools
         public Mesh HollowSquareMesh;
         public Mesh BankRingMesh;
         public Mesh BoundaryMesh;
+        public Mesh BarMesh;
 
         public Material PlayerMaterial;
         public Material EnemyMaterial;
@@ -34,8 +35,10 @@ namespace Overdraft.EditorTools
         public Material EnemyProjectileMaterial;
         public Material PuddleMaterial;
         public Material GridFloorMaterial;
+        public Material VaultFloorMaterial;
         public Material BoundaryMaterial;
         public Material BankRingMaterial;
+        public Material HazardMaterial;
 
         public GameObject DrifterPrefab;
         public GameObject SpitterPrefab;
@@ -178,6 +181,7 @@ namespace Overdraft.EditorTools
 
             ctx.DiamondMesh = SaveMesh(PrimitiveMeshFactory.Diamond(), "M_Diamond");             // Splitter
             ctx.HollowSquareMesh = SaveMesh(PrimitiveMeshFactory.HollowSquare(), "M_HollowSquare"); // Spitter
+            ctx.BarMesh = SaveMesh(PrimitiveMeshFactory.Bar(), "M_Bar");                         // Vault hazard bars
         }
 
         static Mesh SaveMesh(Mesh mesh, string assetName)
@@ -196,6 +200,7 @@ namespace Overdraft.EditorTools
             ctx.PuddleMaterial = DataAssetFactory.CreateMaterial("Overdraft/Additive", "M_Puddle", Palette.Threat, 1.0f);
             ctx.BoundaryMaterial = DataAssetFactory.CreateMaterial("Overdraft/Additive", "M_Wall_Emissive", Palette.Ion, 1.2f);
             ctx.BankRingMaterial = DataAssetFactory.CreateMaterial("Overdraft/RadialFill", "M_BankRing", Palette.Bank, 3.0f);
+            ctx.HazardMaterial = DataAssetFactory.CreateMaterial("Overdraft/Additive", "M_Hazard_Laser", Palette.Hazard, 2.5f);
 
             ctx.GridFloorMaterial = DataAssetFactory.CreateMaterial("Overdraft/GridFloor", "M_Grid_Floor", Palette.Void, 1f);
             if (ctx.GridFloorMaterial == null) { return; }
@@ -205,6 +210,15 @@ namespace Overdraft.EditorTools
             ctx.GridFloorMaterial.SetFloat(ShaderIds.GridLineWidth, 0.02f);
             ctx.GridFloorMaterial.SetFloat(ShaderIds.Radius, ctx.Tuning.Arena.floorRadius);
             EditorUtility.SetDirty(ctx.GridFloorMaterial);
+
+            ctx.VaultFloorMaterial = DataAssetFactory.CreateMaterial("Overdraft/GridFloor", "M_Grid_Vault", Palette.VaultVoid, 1f);
+            if (ctx.VaultFloorMaterial == null) { return; }
+
+            ctx.VaultFloorMaterial.SetColor(ShaderIds.GridColor, Palette.VaultGrid);
+            ctx.VaultFloorMaterial.SetFloat(ShaderIds.GridSpacing, ctx.Tuning.Sim.gridCellSize);
+            ctx.VaultFloorMaterial.SetFloat(ShaderIds.GridLineWidth, 0.02f);
+            ctx.VaultFloorMaterial.SetFloat(ShaderIds.Radius, ctx.Tuning.Arena.vaultRadius);
+            EditorUtility.SetDirty(ctx.VaultFloorMaterial);
         }
 
         static void CreatePrefabs(BuildContext ctx)
@@ -354,6 +368,7 @@ namespace Overdraft.EditorTools
                 HollowSquareMesh = AssetDatabase.LoadAssetAtPath<Mesh>(MeshesRoot + "/M_HollowSquare.asset"),
                 BankRingMesh = AssetDatabase.LoadAssetAtPath<Mesh>(MeshesRoot + "/M_BankRing.asset"),
                 BoundaryMesh = AssetDatabase.LoadAssetAtPath<Mesh>(MeshesRoot + "/M_BoundaryRing.asset"),
+                BarMesh = AssetDatabase.LoadAssetAtPath<Mesh>(MeshesRoot + "/M_Bar.asset"),
 
                 PlayerMaterial = LoadMaterial("M_Player"),
                 EnemyMaterial = LoadMaterial("M_Enemy"),
@@ -361,8 +376,10 @@ namespace Overdraft.EditorTools
                 EnemyProjectileMaterial = LoadMaterial("M_Projectile_Enemy"),
                 PuddleMaterial = LoadMaterial("M_Puddle"),
                 GridFloorMaterial = LoadMaterial("M_Grid_Floor"),
+                VaultFloorMaterial = LoadMaterial("M_Grid_Vault"),
                 BoundaryMaterial = LoadMaterial("M_Wall_Emissive"),
                 BankRingMaterial = LoadMaterial("M_BankRing"),
+                HazardMaterial = LoadMaterial("M_Hazard_Laser"),
 
                 DrifterPrefab = AssetDatabase.LoadAssetAtPath<GameObject>(PrefabsRoot + "/P_Drifter.prefab"),
                 SpitterPrefab = AssetDatabase.LoadAssetAtPath<GameObject>(PrefabsRoot + "/P_Spitter.prefab"),
