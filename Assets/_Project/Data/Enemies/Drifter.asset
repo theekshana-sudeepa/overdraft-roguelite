@@ -1,0 +1,31 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 9f4afc72e36f146748bc9cdf40213185, type: 3}
+  m_Name: Drifter
+  m_EditorClassIdentifier: 
+  type: 0
+  maxHP: 1
+  moveSpeed: 3.2
+  hitboxRadius: 0.4
+  scoreValue: 10
+  budgetCost: 10
+  contactDamage: 1
+  bodyColor: {r: 1, g: 0.23137257, b: 0.36078432, a: 1}
+  preferredRange: 0
+  fireInterval: 0
+  projectileSpeed: 0
+  puddleDuration: 0
+  puddleRadius: 0
+  windupDuration: 0
+  chargeDuration: 0
+  splitCount: 0
+  splitScatterRadius: 0

@@ -1,0 +1,165 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 38a70a081b14141479b141517d475f81, type: 3}
+  m_Name: TuningConfig
+  m_EditorClassIdentifier: 
+  Player:
+    moveSpeed: 8
+    acceleration: 60
+    deceleration: 80
+    facingTurnSpeed: 900
+    hitboxRadius: 0.35
+    visualRadius: 0.5
+    maxHP: 3
+    hitInvulnDuration: 1
+    invulnBlinkHz: 12
+    chargeLossOnHit: 0.5
+    deathBeatDuration: 1
+  Weapon:
+    fireInterval: 0.12
+    projectileSpeed: 22
+    projectileRadius: 0.15
+    projectileLifetime: 1.6
+    projectileDamage: 1
+    baseSpreadDegrees: 3
+    poolSize: 512
+  Dash:
+    distance: 4.5
+    duration: 0.18
+    iframeDuration: 0.13
+    chargeCooldown: 1.5
+    maxCharges: 2
+    perfectWindow: 0.1
+    perfectMultBonus: 2
+    perfectHitstop: 0.15
+  Economy:
+    multStart: 1
+    multPerKill: 0.5
+    multMax: 50
+    multDecayGrace: 1.5
+    multDecayRate: 1
+    multWarnThreshold: 0.4
+    multMin: 1
+  Bank:
+    duration: 1.2
+    fireRateMultiplier: 0.5
+    interruptCooldown: 2
+    completeHitstop: 0.12
+    leechT1Duration: 0.95
+    leechT2Duration: 0.7
+    leechT3Duration: 0.5
+    leechT3IframeDuration: 0.5
+    leechT2DashRefund: 0.3
+  Wave:
+    budgetBase: 60
+    budgetExponent: 1.6
+    budgetScale: 22
+    waveTimeout: 45
+    spawnRingMin: 12
+    spawnRingMax: 16
+    interWaveDelay: 1.2
+    introDuration: 1.5
+    upgradeOffersShown: 3
+    m1SpawnInterval: 1.1
+    m1SpawnIntervalMin: 0.22
+    m1SpawnRampPerSecond: 0.008
+    m1MaxAlive: 120
+  Boss:
+    maxHP: 900
+    phase2Threshold: 0.66
+    phase3Threshold: 0.33
+    phaseTransitionInvuln: 1
+    laserRotationSpeed: 40
+    laserSpokes: 6
+    laserWidth: 0.55
+    drifterSpawnInterval: 4
+    auditDrainRate: 0.08
+    auditWindowDuration: 4
+    auditInterval: 9
+    fragmentCount: 6
+    fragmentHP: 60
+    fragmentOrbitSpeed: 55
+    fragmentOrbitRadius: 5
+    victorySlowMoDuration: 1.5
+  Arena:
+    floorRadius: 18
+    vaultRadius: 14
+    floorOrthoSize: 12
+    vaultOrthoSize: 10
+    environmentLerpTime: 1.5
+    hazardCycleDuration: 4
+    hazardBarCount: 3
+    hazardBarWidth: 0.7
+    hazardTelegraphTime: 0.8
+  Elite:
+    hpMultiplier: 2.5
+    speedMultiplier: 1.25
+    valueMultiplier: 2.5
+    budgetMultiplier: 2.5
+    scaleMultiplier: 1.4
+    outlineWidth: 0.06
+    emissionBoost: 1.6
+  Pools:
+    drifter: 220
+    spitter: 40
+    splitter: 60
+    enemyProjectile: 256
+    puddle: 24
+  Sim:
+    gridCellSize: 2
+    separationRadius: 0.45
+    separationStrength: 3.5
+    maxEnemyRadius: 0.7
+  Feel:
+    hitstopOnKill: 0.045
+    hitstopOnPlayerHit: 0.09
+    hitstopScale: 0.02
+    traumaOnKill: 0.15
+    traumaOnPlayerHit: 0.55
+    traumaOnBankComplete: 0.35
+    traumaOnBossPhase: 0.7
+    traumaDecayRate: 1.8
+    shakeMaxOffset: 0.6
+    shakeMaxRotation: 3
+    shakeFrequency: 22
+    zoomPunchAmount: 0.04
+    zoomPunchDuration: 0.08
+    cameraFollowLerp: 6
+    cameraAimLead: 0.25
+    caBase: 0.08
+    caOnHit: 0.4
+    caDuringBank: 0.25
+    vignetteBase: 0.32
+    vignetteDuringBank: 0.55
+    bankDesaturation: 0.85
+  RiskTiers:
+  - id: RISK_I
+    enemySpeedMultiplier: 1
+    enemyBudgetMultiplier: 1
+    scoreMultiplier: 1
+  - id: RISK_II
+    enemySpeedMultiplier: 1.2
+    enemyBudgetMultiplier: 1.15
+    scoreMultiplier: 1.3
+  - id: RISK_III
+    enemySpeedMultiplier: 1.35
+    enemyBudgetMultiplier: 1.3
+    scoreMultiplier: 1.7
+  - id: RISK_IV
+    enemySpeedMultiplier: 1.5
+    enemyBudgetMultiplier: 1.5
+    scoreMultiplier: 2.2
+  - id: RISK_V
+    enemySpeedMultiplier: 1.7
+    enemyBudgetMultiplier: 1.75
+    scoreMultiplier: 3
+  CreditRankThresholds: 0000000000000000a861000000000000f824010000000000f049020000000000c045040000000000005307000000000000350c000000000020d6130000000000200b20000000000040e133000000000060ec5300000000004054890000000000
