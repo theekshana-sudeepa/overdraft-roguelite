@@ -34,7 +34,7 @@ Unity is not currently installed on this machine. Install it first.
 Unity Hub → **Add** → **Add project from disk** → select:
 
 ```
-/Applications/XAMPP/xamppfiles/htdocs/OVERDRAFT_Handover
+<path-to-cloned-repo>/OVERDRAFT_Handover
 ```
 
 Open it. First import takes 3–8 minutes — it is downloading URP, the Input System and

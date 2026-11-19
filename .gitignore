@@ -33,12 +33,27 @@
 # OS
 .DS_Store
 Thumbs.db
+*.tmp
 
-# Builds
+# Builds & Debug Artifacts
 *.apk
 *.aab
 *.unitypackage
 *.app
+*.stackdump
+sysinfo.txt
+*_BurstDebugInformation_DoNotShip/
+
+# Environment, Secrets & Signing Keys
+.env
+.env.*
+!.env.example
+*.pem
+*.key
+*.p12
+*.keystore
+*.jks
+*.certSigningRequest
 
 # Crashlytics
 crashlytics-build.properties
